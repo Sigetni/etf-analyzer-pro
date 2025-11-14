@@ -288,6 +288,8 @@ elif page == "💹 Price Analysis":
     # Inicializa session state
     if 'price_data' not in st.session_state:
         st.session_state.price_data = None
+    if 'price_symbol_value' not in st.session_state:
+        st.session_state.price_symbol_value = None
 
     col1, col2, col3 = st.columns([2, 1, 1])
 
@@ -304,7 +306,7 @@ elif page == "💹 Price Analysis":
             try:
                 with st.spinner(f"Loading price data for {symbol}..."):
                     st.session_state.price_data = api.get_time_series_daily(symbol, outputsize)
-                    st.session_state.price_symbol = symbol
+                    st.session_state.price_symbol_value = symbol
             except Exception as e:
                 st.error(f"❌ Error: {str(e)}")
                 st.session_state.price_data = None
@@ -312,7 +314,7 @@ elif page == "💹 Price Analysis":
     # Exibe dados se existirem
     if st.session_state.price_data and 'Time Series (Daily)' in st.session_state.price_data:
         data = st.session_state.price_data
-        symbol = st.session_state.price_symbol
+        symbol_display = st.session_state.price_symbol_value
 
         df = pd.DataFrame.from_dict(data['Time Series (Daily)'], orient='index')
         df.index = pd.to_datetime(df.index)
@@ -353,7 +355,7 @@ elif page == "💹 Price Analysis":
         )])
 
         fig.update_layout(
-            title=f'{symbol} Price Chart',
+            title=f'{symbol_display} Price Chart',
             yaxis_title='Price (USD)',
             xaxis_title='Date',
             height=500
@@ -379,7 +381,7 @@ elif page == "💹 Price Analysis":
 
         st.plotly_chart(fig_vol, use_container_width=True)
     elif st.session_state.price_data is not None:
-        st.error(f"❌ No data found")
+        st.error(f"❌ No data found for the symbol")
 
 # ==================== TECHNICAL INDICATORS ====================
 elif page == "📈 Technical Indicators":
