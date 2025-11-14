@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
-
+from etf_list import TOP_100_ETFS, ETF_CATEGORIES
 from config import APP_TITLE, APP_ICON, ALPHA_VANTAGE_API_KEY
 from alpha_vantage_api import AlphaVantageAPI
 from overlap_calculator import OverlapCalculator
@@ -1189,65 +1189,280 @@ elif page == "📰 News":
             - Check relevance scores to find most important articles
             """)
 
-# ==================== SYMBOL SEARCH ====================
+# ==================== ETF FINDER ====================
 elif page == "🔎 Symbol Search":
-    st.title("🔎 Symbol Search")
+    st.title("🔎 ETF Finder")
 
     st.markdown("""
-    Search for stock and ETF symbols by company name or keywords.
+    Find which major ETFs hold a specific stock and see their details.
+    Search through the **100 most liquid ETFs** in the market.
     """)
 
     # Inicializa session state
-    if 'search_results' not in st.session_state:
-        st.session_state.search_results = None
+    if 'etf_finder_results' not in st.session_state:
+        st.session_state.etf_finder_results = None
+    if 'etf_finder_prices' not in st.session_state:
+        st.session_state.etf_finder_prices = {}
 
     col1, col2 = st.columns([3, 1])
 
     with col1:
-        keywords = st.text_input("Enter company name or keywords", value="Apple", key="search_keywords")
+        stock_symbol = st.text_input(
+            "Enter Stock Symbol", 
+            value="AAPL", 
+            key="etf_finder_symbol",
+            help="Enter a stock symbol to find which ETFs hold it"
+        )
 
     with col2:
         st.write("")
         st.write("")
-        if st.button("🔍 Search", key="search_button"):
-            try:
-                with st.spinner(f"Searching for '{keywords}'..."):
-                    st.session_state.search_results = api.search_symbol(keywords)
-                    st.session_state.search_keywords = keywords
-            except Exception as e:
-                st.error(f"❌ Error: {str(e)}")
-                st.session_state.search_results = None
+        if st.button("🔍 Find ETFs", key="etf_finder_search"):
+            if stock_symbol:
+                try:
+                    # Aviso sobre o tempo
+                    st.info(f"⏳ Searching {stock_symbol} in 100 ETFs... This will take approximately 20-30 minutes due to API rate limits (5 requests/minute).")
+
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+
+                    # Busca nos 100 ETFs
+                    results = []
+                    total_etfs = len(TOP_100_ETFS)
+
+                    for idx, etf in enumerate(TOP_100_ETFS):
+                        try:
+                            status_text.text(f"Searching in {etf}... ({idx+1}/{total_etfs})")
+                            progress_bar.progress((idx + 1) / total_etfs)
+
+                            data = api.get_etf_profile(etf)
+
+                            if 'holdings' in data and data['holdings']:
+                                for holding in data['holdings']:
+                                    if holding.get('symbol', '').upper() == stock_symbol.upper():
+                                        results.append({
+                                            'etf_symbol': etf,
+                                            'etf_name': data.get('name', 'N/A'),
+                                            'net_assets': data.get('net_assets', 0),
+                                            'expense_ratio': data.get('net_expense_ratio', 0),
+                                            'dividend_yield': data.get('dividend_yield', 0),
+                                            'description': data.get('description', 'N/A'),
+                                            'holding_weight': holding.get('weight', 0),
+                                            'holding_shares': holding.get('shares', 0)
+                                        })
+                                        break
+                        except Exception as e:
+                            continue
+
+                    progress_bar.empty()
+                    status_text.empty()
+
+                    st.session_state.etf_finder_results = results
+                    st.session_state.etf_finder_symbol = stock_symbol
+
+                    # Busca preços dos ETFs encontrados
+                    if results:
+                        st.info("📊 Fetching current prices...")
+                        st.session_state.etf_finder_prices = {}
+                        for result in results:
+                            try:
+                                etf_sym = result['etf_symbol']
+                                price_data = api.get_time_series_daily(etf_sym, outputsize='compact')
+                                if 'Time Series (Daily)' in price_data:
+                                    latest_date = list(price_data['Time Series (Daily)'].keys())[0]
+                                    latest_price = float(price_data['Time Series (Daily)'][latest_date]['4. close'])
+                                    st.session_state.etf_finder_prices[etf_sym] = latest_price
+                            except:
+                                st.session_state.etf_finder_prices[etf_sym] = None
+
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+                    st.session_state.etf_finder_results = None
+            else:
+                st.warning("⚠️ Please enter a stock symbol")
+
+    # Função auxiliar para converter valores
+    def safe_float(value, default=0):
+        try:
+            if value is None or value == '' or value == 'None':
+                return default
+            return float(value)
+        except (ValueError, TypeError):
+            return default
 
     # Exibe resultados se existirem
-    if st.session_state.search_results and 'bestMatches' in st.session_state.search_results and st.session_state.search_results['bestMatches']:
-        results = st.session_state.search_results
-        keywords = st.session_state.search_keywords
+    if st.session_state.etf_finder_results is not None:
+        results = st.session_state.etf_finder_results
+        stock_symbol = st.session_state.etf_finder_symbol
 
-        st.success(f"✅ Found {len(results['bestMatches'])} results for '{keywords}'")
+        if len(results) > 0:
+            # Ordena por market cap (net assets)
+            results_sorted = sorted(results, key=lambda x: safe_float(x['net_assets'], 0), reverse=True)
 
-        # Converte para DataFrame
-        df = pd.DataFrame(results['bestMatches'])
+            # Pega os top 5
+            top_5 = results_sorted[:5]
 
-        # Renomeia colunas
-        df.columns = df.columns.str.replace('1. ', '').str.replace('2. ', '').str.replace('3. ', '').str.replace('4. ', '').str.replace('5. ', '').str.replace('6. ', '').str.replace('7. ', '').str.replace('8. ', '').str.replace('9. ', '')
+            st.success(f"✅ Found {len(results)} ETFs holding {stock_symbol}. Showing **Top 5 by Market Cap**:")
 
-        # Exibe resultados
-        for idx, row in df.iterrows():
-            with st.container():
-                col1, col2, col3 = st.columns([2, 3, 1])
+            # Exibe cada ETF
+            for idx, etf in enumerate(top_5, 1):
+                with st.container():
+                    # Cabeçalho com ranking
+                    col_rank, col_title = st.columns([1, 11])
+                    with col_rank:
+                        st.markdown(f"### #{idx}")
+                    with col_title:
+                        st.subheader(f"{etf['etf_symbol']} - {etf['etf_name']}")
 
-                with col1:
-                    st.subheader(row.get('symbol', 'N/A'))
-                    st.caption(row.get('type', 'N/A'))
+                    # Métricas principais
+                    col1, col2, col3, col4, col5 = st.columns(5)
 
-                with col2:
-                    st.write(f"**{row.get('name', 'N/A')}**")
-                    st.caption(f"Region: {row.get('region', 'N/A')} | Currency: {row.get('currency', 'N/A')}")
+                    with col1:
+                        price = st.session_state.etf_finder_prices.get(etf['etf_symbol'])
+                        if price:
+                            st.metric("💵 Price", f"${price:.2f}")
+                        else:
+                            st.metric("💵 Price", "N/A")
 
-                with col3:
-                    st.metric("Match", f"{float(row.get('matchScore', 0))*100:.0f}%")
+                    with col2:
+                        net_assets = safe_float(etf['net_assets'])
+                        if net_assets > 0:
+                            st.metric("💰 Market Cap", f"${net_assets/1e9:.2f}B")
+                        else:
+                            st.metric("💰 Market Cap", "N/A")
 
-                st.divider()
+                    with col3:
+                        div_yield = safe_float(etf['dividend_yield'])
+                        if div_yield > 0:
+                            st.metric("📊 Dividend Yield", f"{div_yield*100:.2f}%")
+                        else:
+                            st.metric("📊 Dividend Yield", "N/A")
 
-    elif st.session_state.search_results is not None:
-        st.warning(f"No results found")
+                    with col4:
+                        expense = safe_float(etf['expense_ratio'])
+                        if expense > 0:
+                            st.metric("💸 Expense Ratio", f"{expense*100:.2f}%")
+                        else:
+                            st.metric("💸 Expense Ratio", "N/A")
+
+                    with col5:
+                        weight = safe_float(etf['holding_weight'])
+                        if weight > 0:
+                            st.metric(f"📈 {stock_symbol} Weight", f"{weight*100:.2f}%")
+                        else:
+                            st.metric(f"📈 {stock_symbol} Weight", "N/A")
+
+                    # Descrição
+                    if etf['description'] and etf['description'] != 'N/A':
+                        with st.expander("📄 Description"):
+                            st.write(etf['description'])
+
+                    st.divider()
+
+            # Tabela comparativa dos Top 5
+            st.subheader("📊 Top 5 Comparison Table")
+
+            comparison_data = []
+            for etf in top_5:
+                comparison_data.append({
+                    'Rank': f"#{top_5.index(etf) + 1}",
+                    'ETF': etf['etf_symbol'],
+                    'Name': etf['etf_name'][:30] + '...' if len(etf['etf_name']) > 30 else etf['etf_name'],
+                    'Price': f"${st.session_state.etf_finder_prices.get(etf['etf_symbol'], 0):.2f}" if st.session_state.etf_finder_prices.get(etf['etf_symbol']) else "N/A",
+                    'Market Cap': f"${safe_float(etf['net_assets'])/1e9:.2f}B",
+                    'DY': f"{safe_float(etf['dividend_yield'])*100:.2f}%",
+                    'Fee': f"{safe_float(etf['expense_ratio'])*100:.2f}%",
+                    f'{stock_symbol} Weight': f"{safe_float(etf['holding_weight'])*100:.2f}%"
+                })
+
+            df_comparison = pd.DataFrame(comparison_data)
+            st.dataframe(df_comparison, use_container_width=True, hide_index=True)
+
+            # Mostrar todos os ETFs encontrados (se mais de 5)
+            if len(results) > 5:
+                with st.expander(f"📋 View all {len(results)} ETFs holding {stock_symbol}"):
+                    all_data = []
+                    for idx, etf in enumerate(results_sorted, 1):
+                        all_data.append({
+                            'Rank': f"#{idx}",
+                            'ETF': etf['etf_symbol'],
+                            'Name': etf['etf_name'][:40] + '...' if len(etf['etf_name']) > 40 else etf['etf_name'],
+                            'Market Cap': f"${safe_float(etf['net_assets'])/1e9:.2f}B",
+                            f'{stock_symbol} Weight': f"{safe_float(etf['holding_weight'])*100:.2f}%"
+                        })
+
+                    df_all = pd.DataFrame(all_data)
+                    st.dataframe(df_all, use_container_width=True, hide_index=True)
+
+        else:
+            st.warning(f"❌ No ETFs found holding {stock_symbol}")
+            st.info("💡 Try searching for a more popular stock (e.g., AAPL, MSFT, GOOGL, NVDA)")
+
+    else:
+        st.info("👆 Enter a stock symbol and click 'Find ETFs' to see which major ETFs hold it")
+
+        # Informações sobre a busca
+        with st.expander("ℹ️ About this search"):
+            st.markdown(f"""
+            ### How it works:
+
+            This tool searches through the **{len(TOP_100_ETFS)} most liquid ETFs** in the market to find which ones hold your selected stock.
+
+            #### ETF Categories Covered:
+            """)
+
+            for category, etfs in ETF_CATEGORIES.items():
+                st.markdown(f"**{category}:** {len(etfs)} ETFs")
+
+            st.markdown("""
+            #### ⏱️ Search Time:
+            - Due to API rate limits (5 requests/minute), searching all 100 ETFs takes approximately **20-30 minutes**
+            - The search runs in the background and shows progress
+            - Results are cached, so you can navigate away and come back
+
+            #### 📊 Results Show:
+            - **Top 5 ETFs** by market capitalization
+            - Current price, market cap, dividend yield, expense ratio
+            - Weight of your stock in each ETF
+            - Full description of each ETF
+            - Comparison table for easy analysis
+            """)
+
+        # Exemplos
+        with st.expander("💡 Popular Stocks to Try"):
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                st.markdown("""
+                **Technology:**
+                - AAPL (Apple)
+                - MSFT (Microsoft)
+                - GOOGL (Google)
+                - NVDA (NVIDIA)
+                - TSLA (Tesla)
+                - META (Meta)
+                - AMZN (Amazon)
+                """)
+
+            with col2:
+                st.markdown("""
+                **Finance:**
+                - JPM (JPMorgan)
+                - BAC (Bank of America)
+                - WFC (Wells Fargo)
+                - GS (Goldman Sachs)
+                - MS (Morgan Stanley)
+                - C (Citigroup)
+                """)
+
+            with col3:
+                st.markdown("""
+                **Healthcare:**
+                - JNJ (Johnson & Johnson)
+                - UNH (UnitedHealth)
+                - PFE (Pfizer)
+                - ABBV (AbbVie)
+                - TMO (Thermo Fisher)
+                - LLY (Eli Lilly)
+                """)
+

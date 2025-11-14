@@ -261,3 +261,46 @@ class AlphaVantageAPI:
         }
 
         return self._make_request(params)
+
+    def get_etf_holdings_search(self, symbol, etf_list):
+        """
+        Busca ETFs que contêm uma ação específica
+
+        Args:
+            symbol (str): Símbolo da ação a buscar
+            etf_list (list): Lista de ETFs para buscar
+
+        Returns:
+            list: Lista de ETFs que contêm a ação
+        """
+        etfs_with_holding = []
+        symbol_upper = symbol.upper()
+
+        print(f"\n🔍 Iniciando busca por {symbol_upper} em {len(etf_list)} ETFs...")
+
+        for idx, etf in enumerate(etf_list, 1):
+            try:
+                print(f"[{idx}/{len(etf_list)}] Buscando em {etf}...")
+                data = self.get_etf_profile(etf)
+
+                if 'holdings' in data and data['holdings']:
+                    for holding in data['holdings']:
+                        if holding.get('symbol', '').upper() == symbol_upper:
+                            etfs_with_holding.append({
+                                'etf_symbol': etf,
+                                'etf_name': data.get('name', 'N/A'),
+                                'net_assets': data.get('net_assets', 0),
+                                'expense_ratio': data.get('net_expense_ratio', 0),
+                                'dividend_yield': data.get('dividend_yield', 0),
+                                'description': data.get('description', 'N/A'),
+                                'holding_weight': holding.get('weight', 0),
+                                'holding_shares': holding.get('shares', 0)
+                            })
+                            print(f"✅ Encontrado em {etf} ({len(etfs_with_holding)} ETFs até agora)")
+                            break
+            except Exception as e:
+                print(f"⚠️ Erro ao buscar {etf}: {str(e)}")
+                continue
+
+        print(f"\n✅ Busca concluída! Encontrado em {len(etfs_with_holding)} ETFs.\n")
+        return etfs_with_holding
