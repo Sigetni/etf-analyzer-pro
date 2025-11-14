@@ -308,12 +308,22 @@ elif page == "💹 Price Analysis":
                     with st.spinner(f"Loading price data for {symbol_input}..."):
                         data = api.get_time_series_daily(symbol_input, outputsize)
 
-                        # Debug: mostra o que a API retornou
+                        # Verifica se há dados válidos
                         if 'Time Series (Daily)' in data:
                             st.session_state.price_data = data
                             st.session_state.price_symbol_searched = symbol_input.upper()
+                        elif 'Information' in data:
+                            st.error(f"⚠️ API Message: {data['Information']}")
+                            st.info("💡 This usually means rate limit reached. Please wait 1 minute and try again.")
+                            st.session_state.price_data = None
+                        elif 'Error Message' in data:
+                            st.error(f"❌ {data['Error Message']}")
+                            st.session_state.price_data = None
+                        elif 'Note' in data:
+                            st.error(f"⚠️ Rate limit reached. Please wait 1 minute and try again.")
+                            st.session_state.price_data = None
                         else:
-                            st.error(f"❌ API Response: {list(data.keys())}")
+                            st.error(f"❌ Unexpected API response. Keys received: {list(data.keys())}")
                             st.session_state.price_data = None
 
                 except Exception as e:
@@ -325,6 +335,164 @@ elif page == "💹 Price Analysis":
     # Exibe dados se existirem
     if st.session_state.price_data is not None:
         data = st.session_state.price_data
+
+        if 'Time Series (Daily)' in data:
+            symbol_display = st.session_state.price_symbol_searched
+
+            try:
+                df = pd.DataFrame.from_dict(data['Time Series (Daily)'], orient='index')
+                df.index = pd.to_datetime(df.index)
+                df = df.sort_index()
+
+                # Converte para numérico
+                for col in df.columns:
+                    df[col] = pd.to_numeric(df[col])
+
+                df.columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+
+                # Verifica se há dados suficientes
+                if len(df) < 2:
+                    st.error("❌ Insufficient data for analysis")
+                else:
+                    # Métricas
+                    current_price = df['Close'].iloc[-1]
+                    prev_price = df['Close'].iloc[-2]
+                    change = current_price - prev_price
+                    change_pct = (change / prev_price) * 100
+
+                    col1, col2, col3, col4 = st.columns(4)
+
+                    with col1:
+                        st.metric("Current Price", f"${current_price:.2f}", f"{change:.2f} ({change_pct:.2f}%)")
+                    with col2:
+                        high_52w = df['High'].tail(min(252, len(df))).max()
+                        st.metric("High (52w)", f"${high_52w:.2f}")
+                    with col3:
+                        low_52w = df['Low'].tail(min(252, len(df))).min()
+                        st.metric("Low (52w)", f"${low_52w:.2f}")
+                    with col4:
+                        avg_vol = df['Volume'].tail(min(20, len(df))).mean()
+                        st.metric("Avg Volume", f"{avg_vol/1e6:.2f}M")
+
+                    # Gráfico de candlestick
+                    st.subheader(f"📊 {symbol_display} Price Chart")
+
+                    fig = go.Figure(data=[go.Candlestick(
+                        x=df.index,
+                        open=df['Open'],
+                        high=df['High'],
+                        low=df['Low'],
+                        close=df['Close'],
+                        name=symbol_display
+                    )])
+
+                    fig.update_layout(
+                        title=f'{symbol_display} Price Chart',
+                        yaxis_title='Price (USD)',
+                        xaxis_title='Date',
+                        height=500,
+                        xaxis_rangeslider_visible=False
+                    )
+
+                    st.plotly_chart(fig, use_container_width=True)
+
+                    # Volume
+                    st.subheader("📊 Trading Volume")
+
+                    fig_vol = go.Figure(data=[go.Bar(
+                        x=df.index,
+                        y=df['Volume'],
+                        marker_color='lightblue',
+                        name='Volume'
+                    )])
+
+                    fig_vol.update_layout(
+                        title='Trading Volume',
+                        yaxis_title='Volume',
+                        xaxis_title='Date',
+                        height=300
+                    )
+
+                    st.plotly_chart(fig_vol, use_container_width=True)
+
+                    # Estatísticas adicionais
+                    st.subheader("📊 Price Statistics")
+
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        st.markdown("**Recent Performance:**")
+                        returns_1d = ((df['Close'].iloc[-1] / df['Close'].iloc[-2]) - 1) * 100
+
+                        if len(df) >= 6:
+                            returns_5d = ((df['Close'].iloc[-1] / df['Close'].iloc[-6]) - 1) * 100
+                            st.metric("5 Day Return", f"{returns_5d:.2f}%")
+
+                        if len(df) >= 21:
+                            returns_1m = ((df['Close'].iloc[-1] / df['Close'].iloc[-21]) - 1) * 100
+                            st.metric("1 Month Return", f"{returns_1m:.2f}%")
+
+                        if len(df) >= 63:
+                            returns_3m = ((df['Close'].iloc[-1] / df['Close'].iloc[-63]) - 1) * 100
+                            st.metric("3 Month Return", f"{returns_3m:.2f}%")
+
+                    with col2:
+                        st.markdown("**Volatility:**")
+                        if len(df) >= 20:
+                            volatility_20d = df['Close'].pct_change().tail(20).std() * (252 ** 0.5) * 100
+                            st.metric("20-Day Volatility (Annualized)", f"{volatility_20d:.2f}%")
+
+                        avg_range = ((df['High'] - df['Low']) / df['Close']).tail(min(20, len(df))).mean() * 100
+                        st.metric("Avg Daily Range", f"{avg_range:.2f}%")
+
+                        # Beta (se houver dados suficientes)
+                        if len(df) >= 60:
+                            st.metric("Data Points", f"{len(df)} days")
+
+                    # Tabela de dados recentes
+                    with st.expander("📋 Recent Price Data"):
+                        recent_df = df.tail(10).copy()
+                        recent_df = recent_df.sort_index(ascending=False)
+                        recent_df['Date'] = recent_df.index.strftime('%Y-%m-%d')
+                        recent_df = recent_df[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']]
+                        recent_df['Volume'] = recent_df['Volume'].apply(lambda x: f"{x/1e6:.2f}M")
+
+                        for col in ['Open', 'High', 'Low', 'Close']:
+                            recent_df[col] = recent_df[col].apply(lambda x: f"${x:.2f}")
+
+                        st.dataframe(recent_df, use_container_width=True, hide_index=True)
+
+            except Exception as e:
+                st.error(f"❌ Error processing data: {str(e)}")
+                st.info("💡 Please try again or contact support if the issue persists")
+        else:
+            st.error(f"❌ No price data available")
+    else:
+        st.info("👆 Enter a stock or ETF symbol and click 'Analyze' to view price data")
+
+        with st.expander("💡 Examples"):
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown("""
+                **Popular Stocks:**
+                - AAPL (Apple)
+                - MSFT (Microsoft)
+                - GOOGL (Google)
+                - TSLA (Tesla)
+                - AMZN (Amazon)
+                """)
+
+            with col2:
+                st.markdown("""
+                **Popular ETFs:**
+                - SPY (S&P 500)
+                - QQQ (Nasdaq 100)
+                - VTI (Total Market)
+                - IWM (Small Cap)
+                - XLK (Technology)
+                """)
+
 
 
 # ==================== TECHNICAL INDICATORS ====================
