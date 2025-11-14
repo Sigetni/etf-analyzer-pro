@@ -105,6 +105,15 @@ elif page == "🔍 ETF Profile":
                 st.error(f"❌ Error: {str(e)}")
                 st.session_state.etf_profile_data = None
 
+    # Função auxiliar para converter valores
+    def safe_float(value, default=0):
+        try:
+            if value is None or value == '' or value == 'None':
+                return default
+            return float(value)
+        except (ValueError, TypeError):
+            return default
+
     # Exibe dados se existirem
     if st.session_state.etf_profile_data and 'net_assets' in st.session_state.etf_profile_data:
         data = st.session_state.etf_profile_data
@@ -112,11 +121,14 @@ elif page == "🔍 ETF Profile":
         col1, col2, col3, col4 = st.columns(4)
 
         with col1:
-            st.metric("Net Assets", f"${float(data.get('net_assets', 0))/1e9:.2f}B")
+            net_assets = safe_float(data.get('net_assets', 0))
+            st.metric("Net Assets", f"${net_assets/1e9:.2f}B" if net_assets > 0 else "N/A")
         with col2:
-            st.metric("Expense Ratio", f"{float(data.get('net_expense_ratio', 0))*100:.2f}%")
+            expense_ratio = safe_float(data.get('net_expense_ratio', 0))
+            st.metric("Expense Ratio", f"{expense_ratio*100:.2f}%" if expense_ratio > 0 else "N/A")
         with col3:
-            st.metric("Dividend Yield", f"{float(data.get('dividend_yield', 0))*100:.2f}%")
+            dividend_yield = safe_float(data.get('dividend_yield', 0))
+            st.metric("Dividend Yield", f"{dividend_yield*100:.2f}%" if dividend_yield > 0 else "N/A")
         with col4:
             st.metric("Inception Date", data.get('inception_date', 'N/A'))
 
@@ -137,7 +149,7 @@ elif page == "🔍 ETF Profile":
         if 'holdings' in data and data['holdings']:
             st.subheader("🏢 Top 10 Holdings")
             holdings_df = pd.DataFrame(data['holdings'][:10])
-            holdings_df['weight'] = holdings_df['weight'].astype(float) * 100
+            holdings_df['weight'] = holdings_df['weight'].apply(lambda x: safe_float(x) * 100)
 
             fig = go.Figure(data=[go.Bar(
                 x=holdings_df['weight'],
@@ -156,7 +168,7 @@ elif page == "🔍 ETF Profile":
 
             st.dataframe(holdings_df[['symbol', 'description', 'weight']], use_container_width=True)
     elif st.session_state.etf_profile_data is not None:
-        st.error(f"❌ No data found")
+        st.error(f"❌ No data found for the symbol")
 
 # ==================== ETF OVERLAP ANALYSIS ====================
 elif page == "📊 ETF Overlap Analysis":
