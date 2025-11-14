@@ -170,6 +170,10 @@ elif page == "📊 ETF Overlap Analysis":
     # Inicializa session state
     if 'overlap_result' not in st.session_state:
         st.session_state.overlap_result = None
+    if 'overlap_etf_a_value' not in st.session_state:
+        st.session_state.overlap_etf_a_value = None
+    if 'overlap_etf_b_value' not in st.session_state:
+        st.session_state.overlap_etf_b_value = None
 
     col1, col2, col3 = st.columns([2, 2, 1])
 
@@ -188,8 +192,8 @@ elif page == "📊 ETF Overlap Analysis":
                     with st.spinner(f"Analyzing overlap between {etf_a} and {etf_b}..."):
                         calculator = OverlapCalculator(ALPHA_VANTAGE_API_KEY)
                         st.session_state.overlap_result = calculator.calculate_overlap(etf_a, etf_b)
-                        st.session_state.overlap_etf_a = etf_a
-                        st.session_state.overlap_etf_b = etf_b
+                        st.session_state.overlap_etf_a_value = etf_a
+                        st.session_state.overlap_etf_b_value = etf_b
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
                     st.session_state.overlap_result = None
@@ -199,8 +203,8 @@ elif page == "📊 ETF Overlap Analysis":
     # Exibe resultado se existir
     if st.session_state.overlap_result:
         result = st.session_state.overlap_result
-        etf_a = st.session_state.overlap_etf_a
-        etf_b = st.session_state.overlap_etf_b
+        etf_a_display = st.session_state.overlap_etf_a_value
+        etf_b_display = st.session_state.overlap_etf_b_value
 
         # Métricas principais
         col1, col2, col3, col4 = st.columns(4)
@@ -208,9 +212,9 @@ elif page == "📊 ETF Overlap Analysis":
         with col1:
             st.metric("Overlap Weight", f"{result['overlap_weight']:.2f}%")
         with col2:
-            st.metric(f"{etf_a} in {etf_b}", f"{result['overlap_a_in_b']:.2f}%")
+            st.metric(f"{etf_a_display} in {etf_b_display}", f"{result['overlap_a_in_b']:.2f}%")
         with col3:
-            st.metric(f"{etf_b} in {etf_a}", f"{result['overlap_b_in_a']:.2f}%")
+            st.metric(f"{etf_b_display} in {etf_a_display}", f"{result['overlap_b_in_a']:.2f}%")
         with col4:
             st.metric("Average Overlap", f"{result['overlap_average']:.2f}%")
 
@@ -220,15 +224,15 @@ elif page == "📊 ETF Overlap Analysis":
         fig = go.Figure()
 
         fig.add_trace(go.Bar(
-            name=etf_a,
-            x=[etf_a],
+            name=etf_a_display,
+            x=[etf_a_display],
             y=[100],
             marker_color='lightblue'
         ))
 
         fig.add_trace(go.Bar(
-            name=etf_b,
-            x=[etf_b],
+            name=etf_b_display,
+            x=[etf_b_display],
             y=[100],
             marker_color='lightgreen'
         ))
@@ -259,8 +263,8 @@ elif page == "📊 ETF Overlap Analysis":
         # Summary
         st.info(f"""
         **Summary:**
-        - Total holdings in {etf_a}: {result['total_holdings_a']}
-        - Total holdings in {etf_b}: {result['total_holdings_b']}
+        - Total holdings in {etf_a_display}: {result['total_holdings_a']}
+        - Total holdings in {etf_b_display}: {result['total_holdings_b']}
         - Common holdings: {result['common_count']}
         - Average overlap: {result['overlap_average']:.2f}%
         """)
