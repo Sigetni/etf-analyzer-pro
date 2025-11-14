@@ -288,100 +288,44 @@ elif page == "💹 Price Analysis":
     # Inicializa session state
     if 'price_data' not in st.session_state:
         st.session_state.price_data = None
-    if 'price_symbol_value' not in st.session_state:
-        st.session_state.price_symbol_value = None
+    if 'price_symbol_searched' not in st.session_state:
+        st.session_state.price_symbol_searched = None
 
     col1, col2, col3 = st.columns([2, 1, 1])
 
     with col1:
-        symbol = st.text_input("Enter Symbol", value="AAPL", key="price_symbol")
+        symbol_input = st.text_input("Enter Symbol", value="AAPL", key="price_symbol_input")
 
     with col2:
-        outputsize = st.selectbox("Data Range", ["compact", "full"], key="price_range")
+        outputsize = st.selectbox("Data Range", ["compact", "full"], key="price_range_select")
 
     with col3:
         st.write("")
         st.write("")
-        if st.button("📈 Analyze", key="price_analyze"):
-            try:
-                with st.spinner(f"Loading price data for {symbol}..."):
-                    st.session_state.price_data = api.get_time_series_daily(symbol, outputsize)
-                    st.session_state.price_symbol_value = symbol
-            except Exception as e:
-                st.error(f"❌ Error: {str(e)}")
-                st.session_state.price_data = None
+        if st.button("📈 Analyze", key="price_analyze_btn"):
+            if symbol_input:
+                try:
+                    with st.spinner(f"Loading price data for {symbol_input}..."):
+                        data = api.get_time_series_daily(symbol_input, outputsize)
+
+                        # Debug: mostra o que a API retornou
+                        if 'Time Series (Daily)' in data:
+                            st.session_state.price_data = data
+                            st.session_state.price_symbol_searched = symbol_input.upper()
+                        else:
+                            st.error(f"❌ API Response: {list(data.keys())}")
+                            st.session_state.price_data = None
+
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+                    st.session_state.price_data = None
+            else:
+                st.warning("⚠️ Please enter a symbol")
 
     # Exibe dados se existirem
-    if st.session_state.price_data and 'Time Series (Daily)' in st.session_state.price_data:
+    if st.session_state.price_data is not None:
         data = st.session_state.price_data
-        symbol_display = st.session_state.price_symbol_value
 
-        df = pd.DataFrame.from_dict(data['Time Series (Daily)'], orient='index')
-        df.index = pd.to_datetime(df.index)
-        df = df.sort_index()
-
-        # Converte para numérico
-        for col in df.columns:
-            df[col] = pd.to_numeric(df[col])
-
-        df.columns = ['Open', 'High', 'Low', 'Close', 'Volume']
-
-        # Métricas
-        current_price = df['Close'].iloc[-1]
-        prev_price = df['Close'].iloc[-2]
-        change = current_price - prev_price
-        change_pct = (change / prev_price) * 100
-
-        col1, col2, col3, col4 = st.columns(4)
-
-        with col1:
-            st.metric("Current Price", f"${current_price:.2f}", f"{change:.2f} ({change_pct:.2f}%)")
-        with col2:
-            st.metric("High (52w)", f"${df['High'].tail(252).max():.2f}")
-        with col3:
-            st.metric("Low (52w)", f"${df['Low'].tail(252).min():.2f}")
-        with col4:
-            st.metric("Avg Volume", f"{df['Volume'].tail(20).mean()/1e6:.2f}M")
-
-        # Gráfico de candlestick
-        st.subheader("📊 Price Chart")
-
-        fig = go.Figure(data=[go.Candlestick(
-            x=df.index,
-            open=df['Open'],
-            high=df['High'],
-            low=df['Low'],
-            close=df['Close']
-        )])
-
-        fig.update_layout(
-            title=f'{symbol_display} Price Chart',
-            yaxis_title='Price (USD)',
-            xaxis_title='Date',
-            height=500
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-
-        # Volume
-        st.subheader("📊 Volume")
-
-        fig_vol = go.Figure(data=[go.Bar(
-            x=df.index,
-            y=df['Volume'],
-            marker_color='lightblue'
-        )])
-
-        fig_vol.update_layout(
-            title='Trading Volume',
-            yaxis_title='Volume',
-            xaxis_title='Date',
-            height=300
-        )
-
-        st.plotly_chart(fig_vol, use_container_width=True)
-    elif st.session_state.price_data is not None:
-        st.error(f"❌ No data found for the symbol")
 
 # ==================== TECHNICAL INDICATORS ====================
 elif page == "📈 Technical Indicators":
