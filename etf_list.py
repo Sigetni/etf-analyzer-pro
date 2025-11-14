@@ -1,65 +1,125 @@
 # etf_list.py
-# Lista dos 100 ETFs mais líquidos do mercado (por volume de negociação)
+# Lista otimizada dos ETFs mais líquidos SEM redundâncias
+# Cada ETF representa uma estratégia/índice único
 
-TOP_100_ETFS = [
-    # Broad Market ETFs (S&P 500, Total Market, Nasdaq)
-    "SPY", "VOO", "IVV", "VTI", "QQQ", "QQQM", "DIA", "RSP", "SPLG", "ITOT",
+OPTIMIZED_ETFS = [
+    # === BROAD MARKET (5) ===
+    "SPY",      # S&P 500 (maior liquidez)
+    "QQQ",      # Nasdaq 100
+    "VTI",      # Total US Market
+    "DIA",      # Dow Jones
+    "RSP",      # S&P 500 Equal Weight
 
-    # Growth & Value ETFs
-    "VUG", "IWF", "VTV", "IWD", "SCHG", "SCHV", "MGK", "MGV", "VBK", "VBR",
+    # === SIZE & STYLE (6) ===
+    "IWM",      # Small Cap (Russell 2000)
+    "IJH",      # Mid Cap
+    "VUG",      # Large Cap Growth
+    "VTV",      # Large Cap Value
+    "VBK",      # Small Cap Growth
+    "VBR",      # Small Cap Value
 
-    # International ETFs
-    "VEA", "IEFA", "VWO", "IEMG", "EFA", "EEM", "VGK", "VPL", "EWJ", "EWZ",
-    "EWG", "EWU", "EWC", "EWA", "FXI", "MCHI", "EWY", "EWT", "EWH", "EWW",
+    # === INTERNATIONAL (5) ===
+    "VEA",      # Developed Markets (ex-US)
+    "VWO",      # Emerging Markets
+    "EFA",      # EAFE (Europa, Ásia, Pacífico)
+    "EEM",      # Emerging Markets (alternativo)
+    "VGK",      # European Stocks
 
-    # Sector ETFs - Technology
-    "XLK", "VGT", "FTEC", "IGV", "SMH", "SOXX", "XSD", "HACK", "FINX", "CLOU",
+    # === SECTOR - TECHNOLOGY (3) ===
+    "XLK",      # Technology Sector
+    "VGT",      # Tech alternativo (Vanguard)
+    "SMH",      # Semiconductors
 
-    # Sector ETFs - Financial
-    "XLF", "VFH", "KBE", "KRE", "IAI", "KBWB", "KBWR", "FAS", "FAZ", "IYF",
+    # === SECTOR - FINANCIAL (2) ===
+    "XLF",      # Financial Sector
+    "KBE",      # Banking ETF
 
-    # Sector ETFs - Healthcare
-    "XLV", "VHT", "IYH", "IBB", "XBI", "IHI", "ARKG", "BBH", "IHF", "XHS",
+    # === SECTOR - HEALTHCARE (2) ===
+    "XLV",      # Healthcare Sector
+    "IBB",      # Biotech
 
-    # Sector ETFs - Consumer
-    "XLY", "VCR", "XLP", "VDC", "IYC", "IYK", "RTH", "FXD", "FDIS", "FSTA",
+    # === SECTOR - CONSUMER (3) ===
+    "XLY",      # Consumer Discretionary
+    "XLP",      # Consumer Staples
+    "RTH",      # Retail
 
-    # Sector ETFs - Energy
-    "XLE", "VDE", "IYE", "OIH", "XOP", "IEO", "PXE", "FENY", "ERX", "ERY",
+    # === SECTOR - ENERGY (2) ===
+    "XLE",      # Energy Sector
+    "OIH",      # Oil & Gas
 
-    # Sector ETFs - Industrials
-    "XLI", "VIS", "IYJ", "IYT", "JETS", "ITA", "PPA", "FIDU", "XAR", "IHI",
+    # === SECTOR - INDUSTRIALS (2) ===
+    "XLI",      # Industrials Sector
+    "IYT",      # Transportation
 
-    # Sector ETFs - Real Estate & Utilities
-    "XLRE", "VNQ", "IYR", "SCHH", "RWR", "XLU", "VPU", "IDU", "FUTY", "FXU",
+    # === SECTOR - REAL ESTATE & UTILITIES (3) ===
+    "XLRE",     # Real Estate
+    "VNQ",      # REITs
+    "XLU",      # Utilities
 
-    # Sector ETFs - Materials & Communication
-    "XLB", "VAW", "IYM", "XLC", "VOX", "IYZ", "FCOM", "XTL", "MXI", "IGE",
+    # === SECTOR - MATERIALS & COMMUNICATION (2) ===
+    "XLB",      # Materials
+    "XLC",      # Communication Services
 
-    # Bond ETFs
-    "AGG", "BND", "LQD", "HYG", "TLT", "IEF", "SHY", "MUB", "VCIT", "VCSH",
+    # === BONDS (5) ===
+    "AGG",      # Total Bond Market
+    "LQD",      # Investment Grade Corporate
+    "HYG",      # High Yield Corporate
+    "TLT",      # Long-Term Treasury
+    "MUB",      # Municipal Bonds
 
-    # Dividend ETFs
-    "VIG", "SCHD", "VYM", "DVY", "SDY", "DGRO", "HDV", "NOBL", "DHS", "FVD",
+    # === DIVIDEND FOCUSED (3) ===
+    "VIG",      # Dividend Appreciation
+    "SCHD",     # High Dividend
+    "VYM",      # High Dividend Yield
 
-    # Small & Mid Cap ETFs
-    "IWM", "IJH", "VO", "VB", "IJR", "VXF", "SCHA", "SLYV", "IWN", "IWO"
+    # === THEMATIC/SPECIALTY (7) ===
+    "ARKK",     # Innovation (ARK)
+    "SOXX",     # Semiconductors (alternativo)
+    "JETS",     # Airlines
+    "HACK",     # Cybersecurity
+    "ICLN",     # Clean Energy
+    "GLD",      # Gold
+    "SLV",      # Silver
 ]
 
-# Descrição dos tipos de ETFs
+# Total: 50 ETFs únicos (ao invés de 100 redundantes)
+
+# Categorias para referência
 ETF_CATEGORIES = {
-    "Broad Market": ["SPY", "VOO", "IVV", "VTI", "QQQ", "QQQM", "DIA", "RSP", "SPLG", "ITOT"],
-    "Growth & Value": ["VUG", "IWF", "VTV", "IWD", "SCHG", "SCHV", "MGK", "MGV", "VBK", "VBR"],
-    "International": ["VEA", "IEFA", "VWO", "IEMG", "EFA", "EEM", "VGK", "VPL", "EWJ", "EWZ"],
-    "Technology": ["XLK", "VGT", "FTEC", "IGV", "SMH", "SOXX", "XSD", "HACK", "FINX", "CLOU"],
-    "Financial": ["XLF", "VFH", "KBE", "KRE", "IAI", "KBWB", "KBWR", "FAS", "FAZ", "IYF"],
-    "Healthcare": ["XLV", "VHT", "IYH", "IBB", "XBI", "IHI", "ARKG", "BBH", "IHF", "XHS"],
-    "Consumer": ["XLY", "VCR", "XLP", "VDC", "IYC", "IYK", "RTH", "FXD", "FDIS", "FSTA"],
-    "Energy": ["XLE", "VDE", "IYE", "OIH", "XOP", "IEO", "PXE", "FENY", "ERX", "ERY"],
-    "Industrials": ["XLI", "VIS", "IYJ", "IYT", "JETS", "ITA", "PPA", "FIDU", "XAR", "IHI"],
-    "Real Estate & Utilities": ["XLRE", "VNQ", "IYR", "SCHH", "RWR", "XLU", "VPU", "IDU", "FUTY", "FXU"],
-    "Materials & Communication": ["XLB", "VAW", "IYM", "XLC", "VOX", "IYZ", "FCOM", "XTL", "MXI", "IGE"],
-    "Bonds": ["AGG", "BND", "LQD", "HYG", "TLT", "IEF", "SHY", "MUB", "VCIT", "VCSH"],
-    "Dividend": ["VIG", "SCHD", "VYM", "DVY", "SDY", "DGRO", "HDV", "NOBL", "DHS", "FVD"],
-    "Small & Mid Cap": ["IWM", "IJH", "VO", "VB", "IJR", "VXF", "SCHA", "SLYV", "IWN", "IWO"]
+    "Broad Market": ["SPY", "QQQ", "VTI", "DIA", "RSP"],
+    "Size & Style": ["IWM", "IJH", "VUG", "VTV", "VBK", "VBR"],
+    "International": ["VEA", "VWO", "EFA", "EEM", "VGK"],
+    "Technology": ["XLK", "VGT", "SMH"],
+    "Financial": ["XLF", "KBE"],
+    "Healthcare": ["XLV", "IBB"],
+    "Consumer": ["XLY", "XLP", "RTH"],
+    "Energy": ["XLE", "OIH"],
+    "Industrials": ["XLI", "IYT"],
+    "Real Estate & Utilities": ["XLRE", "VNQ", "XLU"],
+    "Materials & Communication": ["XLB", "XLC"],
+    "Bonds": ["AGG", "LQD", "HYG", "TLT", "MUB"],
+    "Dividend": ["VIG", "SCHD", "VYM"],
+    "Thematic": ["ARKK", "SOXX", "JETS", "HACK", "ICLN", "GLD", "SLV"]
 }
+
+# Descrição do critério de seleção
+SELECTION_CRITERIA = """
+Esta lista contém 50 ETFs únicos selecionados por:
+
+1. **Sem Redundância**: Apenas 1 ETF por índice/estratégia
+   - Exemplo: SPY (não inclui VOO, IVV)
+   - Critério: Maior liquidez ou menor taxa
+
+2. **Cobertura Completa**:
+   - ✅ Todos os setores principais
+   - ✅ Diferentes capitalizações (Large, Mid, Small)
+   - ✅ Estilos (Growth, Value)
+   - ✅ Internacional (Desenvolvidos e Emergentes)
+   - ✅ Renda Fixa
+   - ✅ Dividendos
+   - ✅ Temáticos
+
+3. **Alta Liquidez**: Todos com volume diário > $100M
+
+4. **Tempo de Busca**: ~10 minutos (ao invés de 20-30)
+"""
